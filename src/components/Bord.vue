@@ -27,15 +27,28 @@ export default {
       canvasSize: 400, //のちほどリサイズ対応したい
       turn: 'BLACK',
       board: new Array(SQUARES_N),
-      judgeBoard: new Array(SQUARES_N),
+      judgeBoard: new Array(SQUARES_N)
     }
   },
   mounted() {
     this.init();
   },
+  watch: {
+    currentTurn() {
+      this.computeReverse();
+    },
+    resetFlag() {
+      this.init();
+      this.$store.commit('setResetFlag', false);
+      this.$store.commit('setEndFlag', false);
+    }
+  },
   computed: {
     currentTurn() {
       return this.$store.state.currentTurn;
+    },
+    resetFlag() {
+      return this.$store.state.resetFlag;
     }
   },
   methods: {
@@ -112,6 +125,7 @@ export default {
       this.computeStone();
     },
     computeReverse() {
+    this.$store.commit('setPutFlag', false);
       for(let x in this.board) {
         for(let y in this.board){
           this.judgeBoard[x][y] = {size: false, vec: new Array()};
@@ -133,6 +147,7 @@ export default {
               if(this.board[nextX][nextY] == this.currentTurn) {
                 this.judgeBoard[x][y].size = this.judgeBoard[x][y].size + sum || sum;
                 this.judgeBoard[x][y].vec.push(vec);
+                this.$store.commit('setPutFlag', true);
                 break;
               }
               sum++;
@@ -166,6 +181,10 @@ export default {
       }
       this.$store.commit('setBlackNum', blackNum);
       this.$store.commit('setWhiteNum', whiteNum);
+      if(blackNum + whiteNum >= SQUARES_N * SQUARES_N)
+        if(blackNum > whiteNum) this.$store.commit('setEndFlag', 'BLACK')
+        else if(whiteNum > blackNum) this.$store.commit('setEndFlag', 'WHITE')
+        else this.$store.commit('setEndFlag', 'DRAW')
     }
   }
 }
