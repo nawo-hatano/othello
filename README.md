@@ -2,6 +2,8 @@
 
 > Nuxt.js project
 
+Netlify -> https://othello.netlify.com/
+
 ## Build Setup
 
 ``` bash
