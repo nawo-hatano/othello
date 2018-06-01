@@ -1,13 +1,28 @@
 <template>
-  <canvas
-    ref="canvas"
-    :width="canvasSize"
-    :height="canvasSize"
-    @click="clickBoard"
-  ></canvas>
+  <div class="canvas-wrapper">
+    <canvas
+      ref="canvasBg"
+      :width="canvasSize"
+      :height="canvasSize"
+    ></canvas>
+    <canvas
+      ref="canvas"
+      :width="canvasSize"
+      :height="canvasSize"
+      @click="clickBoard"
+    ></canvas>
+  </div>
 </template>
 
-<style>
+<style scoped>
+.canvas-wrapper {
+  position: relative;
+  height: 400px;
+  widows: 400px;
+}
+canvas {
+  position: absolute;
+}
 </style>
 
 <script>
@@ -25,7 +40,6 @@ export default {
       //なんかVUEの値にしていると重くなるかもとの情報を見たので、後ほど調整したい
       //http://chibinowa.net/note/vuejs/vue-26.html
       canvasSize: 400, //のちほどリサイズ対応したい
-      turn: 'BLACK',
       board: new Array(SQUARES_N),
       judgeBoard: new Array(SQUARES_N)
     }
@@ -60,15 +74,15 @@ export default {
     setParams() {
       this.canvas = this.$refs.canvas;
       this.ctx = this.canvas.getContext("2d");
+      this.ctxBg = this.$refs.canvasBg.getContext("2d");
       this.squareSize = this.canvasSize / SQUARES_N;
     },
     drawCanvas() {
       this.ctx.clearRect(0, 0, this.canvasSize, this.canvasSize);
-      this.drawBoard();
-      this.drawLine();
       this.drawStone();
     },
     initBoard() {
+      this.drawBoard();
       for(let i = 0; i < SQUARES_N; i++) {
         this.board[i] = new Array(SQUARES_N).fill(EMPTY);
         this.judgeBoard[i] = new Array(SQUARES_N).fill({size: false, vec: new Array()});
@@ -81,35 +95,23 @@ export default {
       this.computeReverse();
     },
     drawBoard() {
-      this.ctx.fillStyle = "#008080";
-      this.ctx.fillRect(0, 0, this.canvasSize, this.canvasSize);
-    },
-    drawLine() {
-      this.ctx.lineWidth = 1;
+      this.ctxBg.fillStyle = "#008080";
+      this.ctxBg.fillRect(0, 0, this.canvasSize, this.canvasSize);
+      this.ctxBg.lineWidth = 1;
+      this.ctxBg.beginPath();
       for(let i = 0; i < SQUARES_N + 2; i++) {
         const x = i * this.squareSize;
-        this.ctx.beginPath();
-        this.ctx.moveTo(x, 0);
-        this.ctx.lineTo(x, this.canvasSize)
-        this.ctx.closePath();
-        this.ctx.stroke();
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, x);
-        this.ctx.lineTo(this.canvasSize, x);
-        this.ctx.closePath();
-        this.ctx.stroke();
+        this.ctxBg.moveTo(x, 0);
+        this.ctxBg.lineTo(x, this.canvasSize)
+        this.ctxBg.moveTo(0, x);
+        this.ctxBg.lineTo(this.canvasSize, x);
       }
+      this.ctxBg.stroke();
     },
     drawStone() {
       for(let x in this.board) {
         for(let y in this.board){
-          if(this.board[x][y] == EMPTY) continue;
-
-          if(this.board[x][y] == BLACK) this.ctx.fillStyle = BLACK_COLOR;
-          else if(this.board[x][y] == WHITE) this.ctx.fillStyle = WHITE_COLOR;
-          this.ctx.beginPath();
-          this.ctx.arc(x * this.squareSize + this.squareSize * .5, y * this.squareSize + this.squareSize * .5, this.squareSize * .4 , 0, Math.PI * 2.0, true)
-          this.ctx.fill();
+          this.drawPutStone(x, y);
         }
       }
     },
@@ -118,11 +120,23 @@ export default {
             y = Math.floor(e.offsetY / this.squareSize);
       if(!this.judgeBoard[x][y].size) return;
       this.board[x][y] = this.currentTurn;
+      this.drawPutStone(x, y);
       this.reverseStone(x, y);
       this.$store.commit('switchTurn');
       this.computeReverse();
-      this.drawCanvas();
       this.computeStone();
+    },
+    drawPutStone(x, y) {
+      if(this.board[x][y] == EMPTY) return;
+
+      if(this.board[x][y] == BLACK) this.ctx.fillStyle = BLACK_COLOR;
+      else if(this.board[x][y] == WHITE) this.ctx.fillStyle = WHITE_COLOR;
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.arc(x * this.squareSize + this.squareSize * .5, y * this.squareSize + this.squareSize * .5, this.squareSize * .4, this.squareSize * .4, 0, Math.PI * 2.0, true)
+      this.ctx.closePath();
+      this.ctx.fill();
+      this.ctx.restore();
     },
     computeReverse() {
     this.$store.commit('setPutFlag', false);
@@ -135,7 +149,6 @@ export default {
             let nextX = Number(x) + vec.x,
                 nextY = Number(y) + vec.y;
             if(nextX < 0 || nextX >= SQUARES_N || nextY < 0 || nextY >= SQUARES_N) continue;
-
             if(!this.board[nextX][nextY]) continue;
             if(this.board[nextX][nextY] == EMPTY || this.board[nextX][nextY] == this.currentTurn) continue;
             let sum = 1;
@@ -160,14 +173,54 @@ export default {
       for(let vec of this.judgeBoard[x][y].vec){
         let nextX = x + vec.x,
             nextY = y + vec.y;
+        this.ctx.save();
         while(true) {
           if(nextX < 0 || nextX >= SQUARES_N || nextY < 0 || nextY >= SQUARES_N) break;
           if(this.board[nextX][nextY] == EMPTY) break;
           if(this.board[nextX][nextY] == this.currentTurn) break;
           this.board[nextX][nextY] = this.currentTurn;
+          this.animationStone(nextX, nextY, this.currentTurn);
           nextX += vec.x;
           nextY += vec.y;
         }
+        this.ctx.restore();
+      }
+    },
+    animationStone(x, y, currentTurn) {
+      const lastRender = new Date();
+      let value = 100;
+      const _ = this;
+      animation();
+
+      function animation() {
+        let delta = new Date() - lastRender;
+        _.ctx.clearRect(x * _.squareSize, y * _.squareSize, _.squareSize, _.squareSize);
+        _.ctx.save();
+        _.ctx.beginPath();
+        value = value - delta/10;
+        if(currentTurn != BLACK) _.ctx.fillStyle = BLACK_COLOR;
+        else _.ctx.fillStyle = WHITE_COLOR;
+
+        if(value < -100) value = -100;
+        if(value < 0) {
+          if(currentTurn == BLACK) _.ctx.fillStyle = BLACK_COLOR;
+          else _.ctx.fillStyle = WHITE_COLOR;
+        }
+        _.ctx.translate(x * _.squareSize + _.squareSize * .5, y * _.squareSize + _.squareSize * .5, _.squareSize * .4);
+        _.ctx.scale(value/100, 1);
+        _.ctx.arc(0, 0, _.squareSize * .4 , 0, Math.PI * 2.0, true)
+        _.ctx.closePath();
+        if(currentTurn != BLACK) _.ctx.fillStyle = BLACK_COLOR;
+        else _.ctx.fillStyle = WHITE_COLOR;
+
+        if(value < 0) {
+          if(currentTurn == BLACK) _.ctx.fillStyle = BLACK_COLOR;
+          else _.ctx.fillStyle = WHITE_COLOR;
+        }
+        _.ctx.fill();
+        _.ctx.restore();
+        if(value == -100) return;
+        requestAnimationFrame(animation);
       }
     },
     computeStone() {

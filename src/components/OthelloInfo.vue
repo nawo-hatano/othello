@@ -3,7 +3,7 @@
     <label>Current Turn: </label><span>{{$store.state.currentTurn}}</span><br>
     <label>white: </label><span>{{$store.state.whiteNum}}</span><br>
     <label>black: </label><span>{{$store.state.blackNum}}</span><br>
-    <label v-if="!$store.state.canPutFlag">
+    <label v-if="!$store.state.canPutFlag && !$store.state.endFlag">
       どこにも置けません！
       <button @click="clickPass()">PASS</button>
     </label>
